@@ -158,10 +158,45 @@
             }
             users.forEach(user => {
                 const div = document.createElement('div');
-                div.style = "display: flex; justify-content: space-between; border-bottom: 1px solid #1e293b; padding-bottom: 4px;";
-                div.innerHTML = `<span style="font-size: 0.85rem;">[${user.id}] <strong>${user.username}</strong></span><span class="online" style="font-size: 0.7rem;">● ONLINE</span>`;
+                div.style = "display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding: 4px 0;";
+                div.innerHTML = `
+                    <span style="font-size: 0.85rem;">[${user.id}] <strong>${user.username}</strong></span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="online" style="font-size: 0.7rem;">● ONLINE</span>
+                        <button onclick="forceOffline(${user.id})" style="width: auto; padding: 0.15rem 0.4rem; font-size: 0.65rem; background: #ef4444; color: white;">强行下线</button>
+                    </div>
+                `;
                 container.appendChild(div);
             });
+        }
+
+        /**
+         * 强行将该 ID 下线 (通过模拟后端逻辑将 status 置为 0)
+         */
+        async function forceOffline(userId) {
+            if (!confirm(`确定要强行将用户 [${userId}] 下线吗？`)) return;
+
+            log(`正在对用户 [${userId}] 执行强制下线...`);
+            try {
+                // 升级后端逻辑：我们也需要修改 UserController 以便支持按 ID 下线
+                const response = await fetch(`/user/logout?userId=${userId}`, { method: 'POST' });
+                const result = await response.json();
+
+                if (result.code === 200) {
+                    log(`用户 [${userId}] 强制下线指令已发送`, "online");
+                } else {
+                    log(`用户 [${userId}] 强制下线操作失败: ${result.msg}`, "offline");
+                }
+
+                // 如果本地刚好有这个连接，也顺便关掉它
+                if (activeSessions.has(userId.toString())) {
+                    activeSessions.get(userId.toString()).close();
+                }
+
+                setTimeout(fetchGlobalOnlineUsers, 500);
+            } catch (err) {
+                log(`强制下线请求异常: ${err.message}`, "offline");
+            }
         }
 
         // --- 本地连接管理 ---

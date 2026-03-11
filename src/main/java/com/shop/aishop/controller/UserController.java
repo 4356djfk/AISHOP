@@ -80,25 +80,39 @@ public class UserController {
     /**
      * 用户退出登录接口
      */
-    @Operation(summary = "用户退出", description = "清理 Session 并同步数据库状态为离线")
+    @Operation(summary = "用户退出", description = "清理 Session 并同步数据库状态为离线。支持传入 userId 进行强制下线（监控台使用）")
     @PostMapping("/logout")
-    public Map<String, Object> logout(HttpSession session) {
-        User user = (User) session.getAttribute("LOGIN_USER");
-        if (user != null) {
-            // 1. 同步数据库状态
+    public Map<String, Object> logout(HttpSession session, @RequestParam(required = false) Long userId) {
+        // 1. 如果传入了 userId，执行强制下线逻辑
+        if (userId != null) {
             User updateUserInfo = new User();
-            updateUserInfo.setId(user.getId());
+            updateUserInfo.setId(userId);
             updateUserInfo.setStatus(0);
             userMapper.updateById(updateUserInfo);
             
-            // 2. 清理 Session
-            session.removeAttribute("LOGIN_USER");
-            session.invalidate();
+            // 如果该用户刚好在当前 Session 中，也顺便清理
+            User currentUser = (User) session.getAttribute("LOGIN_USER");
+            if (currentUser != null && currentUser.getId().equals(userId)) {
+                session.removeAttribute("LOGIN_USER");
+                session.invalidate();
+            }
+        } else {
+            // 2. 正常退出当前登录用户
+            User user = (User) session.getAttribute("LOGIN_USER");
+            if (user != null) {
+                User updateUserInfo = new User();
+                updateUserInfo.setId(user.getId());
+                updateUserInfo.setStatus(0);
+                userMapper.updateById(updateUserInfo);
+                
+                session.removeAttribute("LOGIN_USER");
+                session.invalidate();
+            }
         }
         
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
-        result.put("msg", "退出成功");
+        result.put("msg", "下线操作成功");
         return result;
     }
 
