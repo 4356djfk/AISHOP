@@ -83,19 +83,44 @@
 </head>
 
 <body>
-    <div class="card" style="width: 600px;">
-        <h1>Netty 多用户并发测试</h1>
-        <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
-            <input type="number" id="userId" placeholder="输入用户 ID" value="1" style="flex: 1; margin: 0;">
-            <button onclick="connect()" style="width: auto;">+ 建立新连接(上线)</button>
+    <div class="card" style="width: 700px;">
+        <h1>Netty 监控测试工具 (V2.0)</h1>
+
+        <!-- 模拟操作区 -->
+        <div
+            style="background: #0f172a; padding: 1.5rem; border-radius: 0.75rem; margin-bottom: 2rem; border: 1px solid #334155;">
+            <h3 style="margin-top: 0; color: #38bdf8;">模拟上线操作</h3>
+            <div style="display: flex; gap: 10px;">
+                <input type="number" id="userId" placeholder="输入模拟用户 ID" value="1" style="flex: 1; margin: 0;">
+                <button onclick="connect()" style="width: auto;">建立 WebSocket 连接</button>
+            </div>
+            <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem;">提示：建立连接后，Netty 会自动将数据库该用户的 status 改为 1
+            </p>
         </div>
 
-        <h3 style="text-align: left; margin-top: 1rem;">当前活跃会话:</h3>
-        <div id="sessions" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 1rem;">
-            <!-- 会话列表 -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <!-- 左侧：数据库实时看板 -->
+            <div>
+                <h3 style="text-align: left; color: #4ade80;">全局在线看板 (从数据库)</h3>
+                <div id="global-sessions"
+                    style="display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; background: #0f172a; padding: 1rem; border-radius: 0.5rem; border: 1px solid #1e293b;">
+                    <!-- 全局用户列表 -->
+                </div>
+                <p style="font-size: 0.75rem; color: #64748b; margin-top: 0.5rem;">状态自动刷新: <span id="sync-time">-</span>
+                </p>
+            </div>
+
+            <!-- 右侧：当前页面连接详情 -->
+            <div>
+                <h3 style="text-align: left; color: #facc15;">本地连接详情</h3>
+                <div id="sessions"
+                    style="display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; background: #0f172a; padding: 1rem; border-radius: 0.5rem; border: 1px solid #1e293b;">
+                    <!-- 本地连接列表 -->
+                </div>
+            </div>
         </div>
 
-        <div id="status">准备就绪...</div>
+        <div id="status" style="margin-top: 1.5rem; text-align: left;">日志输出:</div>
     </div>
 
     <script>
@@ -105,25 +130,54 @@
             const status = document.getElementById('status');
             const div = document.createElement('div');
             if (type) div.className = type;
+            div.style.fontSize = "0.75rem";
             div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
-            status.prepend(div); // 最新日志在最上面
+            status.after(div);
         }
 
+        // --- 全局在线列表同步 (轮询数据库) ---
+        async function fetchGlobalOnlineUsers() {
+            try {
+                const response = await fetch('/user/online-list');
+                const result = await response.json();
+                if (result.code === 200) {
+                    renderGlobalSessions(result.data);
+                    document.getElementById('sync-time').innerText = new Date().toLocaleTimeString();
+                }
+            } catch (err) {
+                console.error("同步全局状态失败", err);
+            }
+        }
+
+        function renderGlobalSessions(users) {
+            const container = document.getElementById('global-sessions');
+            container.innerHTML = '';
+            if (!users || users.length === 0) {
+                container.innerHTML = '<div style="color: #64748b; font-size: 0.8rem;">数据库中暂无在线用户</div>';
+                return;
+            }
+            users.forEach(user => {
+                const div = document.createElement('div');
+                div.style = "display: flex; justify-content: space-between; border-bottom: 1px solid #1e293b; padding-bottom: 4px;";
+                div.innerHTML = `<span style="font-size: 0.85rem;">[${user.id}] <strong>${user.username}</strong></span><span class="online" style="font-size: 0.7rem;">● ONLINE</span>`;
+                container.appendChild(div);
+            });
+        }
+
+        // --- 本地连接管理 ---
         function renderSessions() {
             const container = document.getElementById('sessions');
             container.innerHTML = '';
-
             if (activeSessions.size === 0) {
-                container.innerHTML = '<div style="color: #64748b; font-size: 0.875rem;">暂无活跃连接</div>';
+                container.innerHTML = '<div style="color: #64748b; font-size: 0.8rem;">本地暂无活跃连接</div>';
                 return;
             }
-
             activeSessions.forEach((socket, userId) => {
                 const div = document.createElement('div');
-                div.style = "display: flex; justify-content: space-between; align-items: center; background: #334155; padding: 0.5rem 1rem; border-radius: 0.5rem;";
+                div.style = "background: #1e293b; padding: 0.5rem; border-radius: 0.4rem; display: flex; justify-content: space-between; align-items: center;";
                 div.innerHTML = `
-                    <span>用户 ID: <strong>${userId}</strong> <span class="online">● 在线</span></span>
-                    <button onclick="disconnect('${userId}')" style="width: auto; padding: 0.25rem 0.75rem; background: #f87171; color: white;">下线</button>
+                    <span style="font-size: 0.85rem;">ID: ${userId}</span>
+                    <button onclick="disconnect('${userId}')" style="width: auto; padding: 0.2rem 0.5rem; font-size: 0.7rem; background: #f87171; color: white;">下线</button>
                 `;
                 container.appendChild(div);
             });
@@ -134,41 +188,40 @@
             if (!userId) return alert("请输入用户 ID");
             if (activeSessions.has(userId)) return alert("该用户已在当前页面建立连接");
 
-            log(`正在为用户 [${userId}] 连接 Netty...`);
+            log(`正在尝试建立 WebSocket 连接 (用户 ${userId})...`);
             const socket = new WebSocket("ws://localhost:8888/ws");
 
             socket.onopen = function () {
-                log(`用户 [${userId}] WebSocket 已打开`, "online");
-                const msg = `LOGIN:userId:${userId}`;
-                socket.send(msg);
+                log(`用户 [${userId}] 连接已成功`, "online");
+                socket.send(`LOGIN:userId:${userId}`);
                 activeSessions.set(userId, socket);
                 renderSessions();
+                fetchGlobalOnlineUsers(); // 立即同步一次
             };
 
             socket.onmessage = function (event) {
                 if (event.data === "PING") {
                     socket.send("PONG");
-                    log(`[用户 ${userId}] 收到 PING，已复 PONG`);
                 }
             };
 
             socket.onclose = function () {
-                log(`用户 [${userId}] 连接已关闭`, "offline");
+                log(`用户 [${userId}] 已断开连接`, "offline");
                 activeSessions.delete(userId);
                 renderSessions();
-            };
-
-            socket.onerror = function () {
-                log(`用户 [${userId}] 连接出错`, "offline");
+                setTimeout(fetchGlobalOnlineUsers, 500); // 延迟同步确保 DB 已更新
             };
         }
 
         function disconnect(userId) {
             const socket = activeSessions.get(userId);
-            if (socket) {
-                socket.close();
-            }
+            if (socket) socket.close();
         }
+
+        // 启动轮询
+        setInterval(fetchGlobalOnlineUsers, 3000);
+        fetchGlobalOnlineUsers();
+
     </script>
 </body>
 

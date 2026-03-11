@@ -14,7 +14,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * <p>
@@ -34,6 +36,30 @@ public class UserController {
 
     @Autowired
     private PresenceManager presenceManager;
+
+    /**
+     * 获取当前在线用户列表 (数据库持久化统计)
+     */
+    @Operation(summary = "获取在线用户列表", description = "从数据库查询所有状态为 1 (在线) 的用户信息")
+    @GetMapping("/online-list")
+    public Map<String, Object> getOnlineList() {
+        // 查询所有状态为 1 的用户
+        List<User> list = userMapper.selectList(new LambdaQueryWrapper<User>().eq(User::getStatus, 1));
+        
+        // 简化返回信息，只返回 ID 和用户名
+        List<Map<String, Object>> userList = list.stream().map(u -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", u.getId());
+            map.put("username", u.getUsername());
+            return map;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("code", 200);
+        result.put("msg", "获取成功");
+        result.put("data", userList);
+        return result;
+    }
 
     /**
      * 获取当前在线总人数 (数据库持久化统计)
