@@ -24,3 +24,19 @@ mybatis-plus:
     db-config:
       id-type: ASSIGN_ID
       table-prefix: t_
+
+# Knife4j & SpringDoc 配置
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  paths-to-match: /**
+  packages-to-scan: com.shop.aishop.controller
+
+knife4j:
+  enable: true
+  setting:
+    language: zh-CN
