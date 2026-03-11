@@ -1,5 +1,6 @@
 package com.shop.aishop.controller;
 
+import com.shop.aishop.common.UserContext;
 import com.shop.aishop.dto.LoginRequest;
 import com.shop.aishop.entity.User;
 import com.shop.aishop.service.UserService;
@@ -23,6 +24,27 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    /**
+     * 获取当前登录用户信息 (ThreadLocal 隔离测试)
+     */
+    @Operation(summary = "获取当前用户信息", description = "通过 ThreadLocal 获取拦截器注入的当前用户信息，测试隔离性")
+    @GetMapping("/info")
+    public Map<String, Object> getInfo() {
+        User user = UserContext.getUser();
+        boolean isAdmin = UserContext.isAdmin();
+        
+        Map<String, Object> result = new HashMap<>();
+        if (user != null) {
+            result.put("code", 200);
+            result.put("msg", isAdmin ? "当前是管理员" : "当前是普通用户");
+            result.put("data", user);
+        } else {
+            result.put("code", 401);
+            result.put("msg", "未检测到登录用户，请在 Header 中添加 X-User-Id");
+        }
+        return result;
+    }
 
     /**
      * 用户登录接口
