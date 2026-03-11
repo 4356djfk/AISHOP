@@ -21,24 +21,29 @@ public class UserInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        // 1. 从 Header 中获取用户 ID (模拟登录态，实际项目中使用 Token/JWT)
+        // 1. 优先从 Header 中获取用户 ID (模拟登录态/调试用)
         String userIdStr = request.getHeader("X-User-Id");
         
         if (userIdStr != null && !userIdStr.isEmpty()) {
             try {
                 Long userId = Long.parseLong(userIdStr);
-                // 2. 从数据库查询用户
                 User user = userMapper.selectById(userId);
                 if (user != null) {
-                    // 3. 存入当前线程上下文
                     UserContext.setUser(user);
+                    return true;
                 }
             } catch (NumberFormatException e) {
-                // ID 格式错误，忽略
+                // ID 格式错误，继续尝试 Session
             }
         }
+
+        // 2. 如果 Header 没有，则从 Session 中获取 (正式登录流程)
+        User sessionUser = (User) request.getSession().getAttribute("LOGIN_USER");
+        if (sessionUser != null) {
+            UserContext.setUser(sessionUser);
+        }
         
-        return true; // 拦截器仅用于填充上下文，权限校验可另行配置或在 Controller 中判断
+        return true; 
     }
 
     @Override
