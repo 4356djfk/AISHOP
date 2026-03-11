@@ -81,26 +81,37 @@ git push origin main
 
 ## ❓ 常见问题
 
-### 1. 镜像拉取失败 (Image Not Found / Not Found)
-**现象**: 报错 `docker.io/library/maven:xxx not found`。
+### 1. 镜像拉取失败 / 无法解析 (Not Found)
+**现象**: `docker.io/library/xxx: not found`。
 
-**原因**: 该错误通常由于**网络连接 Docker Hub 受限**或加速器同步延迟导致，并非镜像不存在。
+**解决方案 A: 配置加速器 (推荐)**
+请在 Docker Desktop 的 `Settings` -> `Docker Engine` 中添加以下镜像源（JSON 格式）：
+```json
+{
+  "registry-mirrors": [
+    "https://docker.m.daocloud.io",
+    "https://dockerproxy.com"
+  ]
+}
+```
+*注：由于镜像源变动频繁，请协作者搜索“2024 Docker 镜像源”获取最新可用地址。*
 
-**解决方法**:
-- **配置/更换加速器**: 请配置可靠的 Docker 镜像加速器。
-- **手动拉取**: 尝试单独运行 `docker pull maven:3.9-eclipse-temurin-17`。
-- **使用代理**: 确保 Docker Desktop 已配置正确的代理设置。
+**解决方案 B: 配置代理 (强制)**
+这是最可靠的方法。在 Docker Desktop -> `Settings` -> `Resources` -> `Proxies` 中：
+1. 开启 `Manual proxy configuration`。
+2. 配置 `Web Server (HTTP)` 和 `Secure Web Server (HTTPS)`（通常为 `http://127.0.0.1:端口`）。
+3. 重启 Docker Desktop 后执行 `docker-compose up --build`。
+
+---
 
 ### 2. 容器名称冲突 (Conflict)
-**现象**: `Error response from daemon: Conflict. The container name "/aishop-postgres" is already in use...`
+**现象**: `Error response from daemon: Conflict...`
 
-**原因**: 本地已存在同名的容器。
-
-**解决方法**: 运行命令强制删除旧容器：
+**解决方法**: 运行以下命令强制删除旧容器：
 ```bash
 docker rm -f aishop-postgres aishop-app
 ```
-或者使用：
+或者彻底清理：
 ```bash
 docker-compose down
 ```
