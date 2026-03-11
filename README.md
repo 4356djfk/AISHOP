@@ -76,3 +76,31 @@ git push origin main
 - **数据库**: PostgreSQL 15
 - **文档**: Knife4j (Swagger 3)
 - **其他**: Lombok
+
+---
+
+## ❓ 常见问题
+
+### 1. 镜像拉取失败 (Image Not Found / Not Found)
+**现象**: 报错 `docker.io/library/maven:xxx not found`。
+
+**原因**: 该错误通常由于**网络连接 Docker Hub 受限**或加速器同步延迟导致，并非镜像不存在。
+
+**解决方法**:
+- **配置/更换加速器**: 请配置可靠的 Docker 镜像加速器。
+- **手动拉取**: 尝试单独运行 `docker pull maven:3.9-eclipse-temurin-17`。
+- **使用代理**: 确保 Docker Desktop 已配置正确的代理设置。
+
+### 2. 容器名称冲突 (Conflict)
+**现象**: `Error response from daemon: Conflict. The container name "/aishop-postgres" is already in use...`
+
+**原因**: 本地已存在同名的容器。
+
+**解决方法**: 运行命令强制删除旧容器：
+```bash
+docker rm -f aishop-postgres aishop-app
+```
+或者使用：
+```bash
+docker-compose down
+```
