@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Netty 在线监测测试</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0f172a;
+            color: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .card {
+            background: #1e293b;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            width: 400px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: #38bdf8;
+        }
+
+        input {
+            background: #334155;
+            border: 1px solid #475569;
+            color: white;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            width: 100%;
+            margin-bottom: 1rem;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: #38bdf8;
+            color: #0f172a;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            transition: scale 0.2s;
+        }
+
+        button:hover {
+            scale: 1.02;
+            background: #7dd3fc;
+        }
+
+        #status {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            background: #0f172a;
+            font-size: 0.875rem;
+            text-align: left;
+            overflow-y: auto;
+            max-height: 150px;
+            border: 1px solid #334155;
+        }
+
+        .online {
+            color: #4ade80;
+        }
+
+        .offline {
+            color: #f87171;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card" style="width: 600px;">
+        <h1>Netty 多用户并发测试</h1>
+        <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
+            <input type="number" id="userId" placeholder="输入用户 ID" value="1" style="flex: 1; margin: 0;">
+            <button onclick="connect()" style="width: auto;">+ 建立新连接(上线)</button>
+        </div>
+
+        <h3 style="text-align: left; margin-top: 1rem;">当前活跃会话:</h3>
+        <div id="sessions" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 1rem;">
+            <!-- 会话列表 -->
+        </div>
+
+        <div id="status">准备就绪...</div>
+    </div>
+
+    <script>
+        const activeSessions = new Map(); // id -> socket
+
+        function log(msg, type) {
+            const status = document.getElementById('status');
+            const div = document.createElement('div');
+            if (type) div.className = type;
+            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            status.prepend(div); // 最新日志在最上面
+        }
+
+        function renderSessions() {
+            const container = document.getElementById('sessions');
+            container.innerHTML = '';
+
+            if (activeSessions.size === 0) {
+                container.innerHTML = '<div style="color: #64748b; font-size: 0.875rem;">暂无活跃连接</div>';
+                return;
+            }
+
+            activeSessions.forEach((socket, userId) => {
+                const div = document.createElement('div');
+                div.style = "display: flex; justify-content: space-between; align-items: center; background: #334155; padding: 0.5rem 1rem; border-radius: 0.5rem;";
+                div.innerHTML = `
+                    <span>用户 ID: <strong>${userId}</strong> <span class="online">● 在线</span></span>
+                    <button onclick="disconnect('${userId}')" style="width: auto; padding: 0.25rem 0.75rem; background: #f87171; color: white;">下线</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function connect() {
+            const userId = document.getElementById('userId').value;
+            if (!userId) return alert("请输入用户 ID");
+            if (activeSessions.has(userId)) return alert("该用户已在当前页面建立连接");
+
+            log(`正在为用户 [${userId}] 连接 Netty...`);
+            const socket = new WebSocket("ws://localhost:8888/ws");
+
+            socket.onopen = function () {
+                log(`用户 [${userId}] WebSocket 已打开`, "online");
+                const msg = `LOGIN:userId:${userId}`;
+                socket.send(msg);
+                activeSessions.set(userId, socket);
+                renderSessions();
+            };
+
+            socket.onmessage = function (event) {
+                if (event.data === "PING") {
+                    socket.send("PONG");
+                    log(`[用户 ${userId}] 收到 PING，已复 PONG`);
+                }
+            };
+
+            socket.onclose = function () {
+                log(`用户 [${userId}] 连接已关闭`, "offline");
+                activeSessions.delete(userId);
+                renderSessions();
+            };
+
+            socket.onerror = function () {
+                log(`用户 [${userId}] 连接出错`, "offline");
+            };
+        }
+
+        function disconnect(userId) {
+            const socket = activeSessions.get(userId);
+            if (socket) {
+                socket.close();
+            }
+        }
+    </script>
+</body>
+
+</html>
