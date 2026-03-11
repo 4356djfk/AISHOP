@@ -2,39 +2,40 @@
 
 这是一个基于 Spring Boot 3.3.4 + MyBatis-Plus + PostgreSQL 15 的后端基础项目。
 
-## 🚀 快速启动
+## 🚀 快速启动 (推荐 - 环境一致性保障)
+
+为了确保所有协作者的环境（JDK 17, Maven, PostgreSQL）完全一致，推荐使用 **Docker Compose** 一键启动。
 
 ### 1. 环境准备
-确保你的本地环境已安装以下工具：
-- **JDK 17+**
-- **Docker & Docker Desktop** (用于启动数据库)
-- **Maven 3.6+** (或直接使用项目自带的 `./mvnw`)
+确保你的本地环境已安装并启动：
+- **Docker** & **Docker Desktop**
 
-### 2. 初始化数据库
-项目数据库初始化脚本位于 [sql/schema.sql](sql/schema.sql)。
-你可以直接在数据库客户端（如 DataGrip / pgAdmin）执行该脚本，或使用命令行执行：
+### 2. 一键启动项目
+在项目根目录下运行：
 
 ```bash
-docker cp sql/schema.sql aishop-postgres:/tmp/schema.sql
-docker exec aishop-postgres psql -U admin -d aishop_db -f /tmp/schema.sql
+docker-compose up --build
 ```
 
-**数据库连接信息（默认）：**
-- **Host**: `localhost`
-- **Port**: `5432`
-- **User**: `admin`
-- **Password**: `123456`
-- **Database**: `aishop_db`
+该命令将自动：
+1. **构建应用镜像**：在容器内使用 JDK 17 进行编译和打包。
+2. **启动数据库**：启动 PostgreSQL 15 容器并持久化数据。
+3. **服务互联**：应用将自动连接到容器内的数据库。
 
-### 3. 运行项目
-可以直接使用 Maven 命令启动：
+### 3. 验证启动
+项目启动后，访问以下地址验证：
+- **API 文档 (Knife4j)**: [http://localhost:8080/doc.html](http://localhost:8080/doc.html)
+- **数据库连接测试**: [http://localhost:8080/testdb](http://localhost:8080/testdb)
 
-```bash
-./mvnw spring-boot:run
-```
+---
 
-项目启动后，访问以下地址验证连接：
-[http://localhost:8080/testdb](http://localhost:8080/testdb)
+## 🛠️ 本地手动开发 (可选)
+
+如果你需要在本地不通过 Docker 运行应用（例如使用 IDE 调试）：
+
+1. **启动容器化数据库**: `docker-compose up -d postgres`
+2. **本地环境**: 请确保已安装 **JDK 17** 和 **Maven**。
+3. **运行**: `./mvnw spring-boot:run`
 
 ---
 
