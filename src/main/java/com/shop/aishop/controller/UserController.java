@@ -3,6 +3,7 @@ package com.shop.aishop.controller;
 import com.shop.aishop.common.UserContext;
 import com.shop.aishop.dto.LoginRequest;
 import com.shop.aishop.entity.User;
+import com.shop.aishop.netty.PresenceManager;
 import com.shop.aishop.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,6 +26,22 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private PresenceManager presenceManager;
+
+    /**
+     * 获取当前在线总人数 (Netty 实时监测)
+     */
+    @Operation(summary = "获取在线人数", description = "获取当前通过 WebSocket 连接的实时在线人数")
+    @GetMapping("/online-count")
+    public Map<String, Object> getOnlineCount() {
+        Map<String, Object> result = new HashMap<>();
+        result.put("code", 200);
+        result.put("msg", "获取成功");
+        result.put("data", presenceManager.getOnlineCount());
+        return result;
+    }
 
     /**
      * 获取当前登录用户信息 (ThreadLocal 隔离测试)

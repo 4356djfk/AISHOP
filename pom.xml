@@ -108,6 +108,13 @@
             <version>${mybatis-plus.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- ========== 网络通讯 ========== -->
+        <!-- Netty（高性能网络应用框架，用于实时心跳和上下线监测） -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
