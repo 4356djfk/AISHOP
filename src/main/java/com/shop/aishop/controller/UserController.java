@@ -1,5 +1,6 @@
 package com.shop.aishop.controller;
 
+import com.shop.aishop.dto.LoginRequest;
 import com.shop.aishop.entity.User;
 import com.shop.aishop.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,14 +26,14 @@ public class UserController {
 
     /**
      * 用户登录接口
-     * @param loginRequest 包含 username 和 password 的 Map
+     * @param loginRequest 登录请求对象
      * @return 登录结果
      */
     @Operation(summary = "用户登录", description = "根据用户名和密码验证用户身份，并记录登录设备信息")
     @PostMapping("/login")
-    public Map<String, Object> login(@RequestBody Map<String, String> loginRequest) {
-        String username = loginRequest.get("username");
-        String password = loginRequest.get("password");
+    public Map<String, Object> login(@RequestBody LoginRequest loginRequest) {
+        String username = loginRequest.getUsername();
+        String password = loginRequest.getPassword();
 
         User user = userService.login(username, password);
         
