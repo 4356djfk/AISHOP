@@ -33,6 +33,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             user.setLastOsName("Windows 10");
             user.setLastBrowserName("Chrome");
             
+            // 设置状态为 1 (在线)
+            user.setStatus(1);
+            
             this.updateById(user);
             return user;
         }
