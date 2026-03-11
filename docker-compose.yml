@@ -12,9 +12,23 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "aishop_user"]
+      test: ["CMD", "pg_isready", "-U", "admin", "-d", "aishop_db"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  app:
+    build: .
+    container_name: aishop-app
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/aishop_db
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=123456
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:
