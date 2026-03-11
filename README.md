@@ -10,11 +10,13 @@
 - **Docker & Docker Desktop** (用于启动数据库)
 - **Maven 3.6+** (或直接使用项目自带的 `./mvnw`)
 
-### 2. 启动数据库
-项目使用 Docker Compose 来管理 PostgreSQL 容器，请在项目根目录下执行：
+### 2. 初始化数据库
+项目数据库初始化脚本位于 [sql/schema.sql](sql/schema.sql)。
+你可以直接在数据库客户端（如 DataGrip / pgAdmin）执行该脚本，或使用命令行执行：
 
 ```bash
-docker compose up -d
+docker cp sql/schema.sql aishop-postgres:/tmp/schema.sql
+docker exec aishop-postgres psql -U admin -d aishop_db -f /tmp/schema.sql
 ```
 
 **数据库连接信息（默认）：**
