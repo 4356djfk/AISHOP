@@ -45,12 +45,13 @@ public class UserController {
     public Map<String, Object> getOnlineList() {
         // 查询所有状态为 1 的用户
         List<User> list = userMapper.selectList(new LambdaQueryWrapper<User>().eq(User::getStatus, 1));
-        
+
         // 简化返回信息，只返回 ID 和用户名
         List<Map<String, Object>> userList = list.stream().map(u -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", u.getId());
             map.put("username", u.getUsername());
+            map.put("lastLoginIp", u.getLastLoginIp());
             return map;
         }).collect(Collectors.toList());
 
@@ -69,7 +70,7 @@ public class UserController {
     public Map<String, Object> getOnlineCount() {
         // 从数据库实时查询在线状态
         Long count = userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getStatus, 1));
-        
+
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("msg", "获取成功");
@@ -89,7 +90,7 @@ public class UserController {
             updateUserInfo.setId(userId);
             updateUserInfo.setStatus(0);
             userMapper.updateById(updateUserInfo);
-            
+
             // 如果该用户刚好在当前 Session 中，也顺便清理
             User currentUser = (User) session.getAttribute("LOGIN_USER");
             if (currentUser != null && currentUser.getId().equals(userId)) {
@@ -104,12 +105,12 @@ public class UserController {
                 updateUserInfo.setId(user.getId());
                 updateUserInfo.setStatus(0);
                 userMapper.updateById(updateUserInfo);
-                
+
                 session.removeAttribute("LOGIN_USER");
                 session.invalidate();
             }
         }
-        
+
         Map<String, Object> result = new HashMap<>();
         result.put("code", 200);
         result.put("msg", "下线操作成功");
@@ -124,7 +125,7 @@ public class UserController {
     public Map<String, Object> getInfo() {
         User user = UserContext.getUser();
         boolean isAdmin = UserContext.isAdmin();
-        
+
         Map<String, Object> result = new HashMap<>();
         if (user != null) {
             result.put("code", 200);
@@ -149,12 +150,12 @@ public class UserController {
         String password = loginRequest.getPassword();
 
         User user = userService.login(username, password);
-        
+
         Map<String, Object> result = new HashMap<>();
         if (user != null) {
             // 登录成功，存入 Session
             session.setAttribute("LOGIN_USER", user);
-            
+
             result.put("code", 200);
             result.put("msg", "登录成功");
             result.put("data", user);
@@ -162,7 +163,42 @@ public class UserController {
             result.put("code", 400);
             result.put("msg", "用户名或密码错误");
         }
-        
+
+        return result;
+    }
+
+    /**
+     * 获取用户监控信息
+     */
+    @Operation(summary = "获取用户监控信息", description = "获取指定用户的心跳、CPU和内存监控信息")
+    @GetMapping("/monitor-info")
+    public Map<String, Object> getMonitorInfo(@RequestParam Long userId) {
+        Map<String, Object> monitorInfo = presenceManager.getUserMonitorInfo(userId);
+
+        Map<String, Object> result = new HashMap<>();
+        if (monitorInfo != null) {
+            result.put("code", 200);
+            result.put("msg", "获取成功");
+            result.put("data", monitorInfo);
+        } else {
+            result.put("code", 404);
+            result.put("msg", "用户不存在或未在线");
+        }
+        return result;
+    }
+
+    /**
+     * 获取所有在线用户的监控信息
+     */
+    @Operation(summary = "获取所有在线用户的监控信息", description = "获取所有在线用户的心跳、CPU和内存监控信息")
+    @GetMapping("/all-monitor-info")
+    public Map<String, Object> getAllMonitorInfo() {
+        Map<Long, Map<String, Object>> allMonitorInfo = presenceManager.getAllUserMonitorInfo();
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("code", 200);
+        result.put("msg", "获取成功");
+        result.put("data", allMonitorInfo);
         return result;
     }
 }

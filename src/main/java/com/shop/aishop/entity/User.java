@@ -99,6 +99,19 @@ public class User implements Serializable {
     private BigDecimal totalSpend;
 
     /**
+     * 最后心跳时间
+     */
+    private LocalDateTime lastHeartbeatTime;
+    /**
+     * 当前CPU使用率
+     */
+    private Double currentCpuUsage;
+    /**
+     * 当前内存利用率
+     */
+    private Double currentMemoryUsage;
+
+    /**
      * 注册时间
      */
     @TableField(fill = FieldFill.INSERT)

@@ -4,17 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <title>Netty 在线监测测试</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
             background: #0f172a;
             color: #f8fafc;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
             margin: 0;
+            padding: 2rem;
         }
 
         .card {
@@ -22,14 +19,16 @@
             padding: 2rem;
             border-radius: 1rem;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            width: 400px;
-            text-align: center;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
         }
 
         h1 {
             font-size: 1.5rem;
             margin-bottom: 1.5rem;
             color: #38bdf8;
+            text-align: center;
         }
 
         input {
@@ -51,7 +50,6 @@
             border-radius: 0.5rem;
             font-weight: bold;
             cursor: pointer;
-            width: 100%;
             transition: scale 0.2s;
         }
 
@@ -79,185 +77,754 @@
         .offline {
             color: #f87171;
         }
+
+        /* 卡片式用户列表 */
+        .user-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .user-card {
+            background: #1e293b;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .user-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .user-card-body {
+            margin-bottom: 1rem;
+        }
+
+        .user-card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* 监控详情模态框 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: #1e293b;
+            margin: 15% auto;
+            padding: 2rem;
+            border-radius: 1rem;
+            width: 80%;
+            max-width: 800px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .close {
+            color: #94a3b8;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #f8fafc;
+        }
+
+        /* 图表容器 */
+        .chart-container {
+            margin-top: 2rem;
+            background: #0f172a;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+        }
+
+        .chart-wrapper {
+            margin-bottom: 2rem;
+            height: 300px; /* 固定图表高度 */
+        }
+
+        h3 {
+            color: #38bdf8;
+            margin-bottom: 1rem;
+        }
+
+        /* 模拟操作区 */
+        .simulation-area {
+            background: #0f172a;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            margin-bottom: 2rem;
+            border: 1px solid #334155;
+        }
+
+        .simulation-area h3 {
+            margin-top: 0;
+            color: #38bdf8;
+        }
+
+        .simulation-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .simulation-controls input {
+            flex: 1;
+            margin: 0;
+        }
+
+        .simulation-controls button {
+            width: auto;
+        }
     </style>
 </head>
 
 <body>
-    <div class="card" style="width: 700px;">
-        <h1>Netty 监控测试工具 (V2.0)</h1>
+<div class="card">
+    <h1>Netty 监控测试工具 (V2.0)</h1>
 
-        <!-- 模拟操作区 -->
-        <div
-            style="background: #0f172a; padding: 1.5rem; border-radius: 0.75rem; margin-bottom: 2rem; border: 1px solid #334155;">
-            <h3 style="margin-top: 0; color: #38bdf8;">模拟上线操作</h3>
-            <div style="display: flex; gap: 10px;">
-                <input type="number" id="userId" placeholder="输入模拟用户 ID" value="1" style="flex: 1; margin: 0;">
-                <button onclick="connect()" style="width: auto;">建立 WebSocket 连接</button>
-            </div>
-            <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem;">提示：建立连接后，Netty 会自动将数据库该用户的 status 改为 1
-            </p>
+    <!-- 模拟操作区 -->
+    <div class="simulation-area">
+        <h3>模拟上线操作</h3>
+        <div class="simulation-controls">
+            <input type="number" id="userId" placeholder="输入模拟用户 ID" value="1">
+            <button onclick="connect()">建立 WebSocket 连接</button>
         </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-            <!-- 左侧：数据库实时看板 -->
-            <div>
-                <h3 style="text-align: left; color: #4ade80;">全局在线看板 (从数据库)</h3>
-                <div id="global-sessions"
-                    style="display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; background: #0f172a; padding: 1rem; border-radius: 0.5rem; border: 1px solid #1e293b;">
-                    <!-- 全局用户列表 -->
-                </div>
-                <p style="font-size: 0.75rem; color: #64748b; margin-top: 0.5rem;">状态自动刷新: <span id="sync-time">-</span>
-                </p>
-            </div>
-
-            <!-- 右侧：当前页面连接详情 -->
-            <div>
-                <h3 style="text-align: left; color: #facc15;">本地连接详情</h3>
-                <div id="sessions"
-                    style="display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; background: #0f172a; padding: 1rem; border-radius: 0.5rem; border: 1px solid #1e293b;">
-                    <!-- 本地连接列表 -->
-                </div>
-            </div>
-        </div>
-
-        <div id="status" style="margin-top: 1.5rem; text-align: left;">日志输出:</div>
+        <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem;">提示：建立连接后，Netty 会自动将数据库该用户的 status 改为 1
+        </p>
     </div>
 
-    <script>
-        const activeSessions = new Map(); // id -> socket
+    <!-- 全局在线看板 (卡片形式) -->
+    <h3 style="color: #4ade80; margin-top: 2rem;">全局在线看板</h3>
+    <div id="global-sessions" class="user-cards">
+        <!-- 全局用户列表 -->
+    </div>
+    <p style="font-size: 0.75rem; color: #64748b; margin-top: 0.5rem;">状态自动刷新: <span id="sync-time">-</span>
+    </p>
 
-        function log(msg, type) {
-            const status = document.getElementById('status');
-            const div = document.createElement('div');
-            if (type) div.className = type;
-            div.style.fontSize = "0.75rem";
-            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
-            status.after(div);
-        }
+    <!-- 监控详情模态框 -->
+    <div id="monitorModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 id="modalTitle">用户监控详情</h2>
+            <div id="monitorInfo">
+                <!-- 监控信息 -->
+            </div>
+            <div style="margin-bottom: 1.5rem;">
+                <button id="refreshBtn" onclick="refreshModalMonitorInfo()" style="padding: 0.5rem 1rem; font-size: 0.8rem; background: #3b82f6; color: white;">刷新监控数据</button>
+            </div>
+            <div class="chart-container">
+                <div class="chart-wrapper">
+                    <h3>CPU 使用率变化</h3>
+                    <canvas id="cpuChart"></canvas>
+                </div>
+                <div class="chart-wrapper">
+                    <h3>内存利用率变化</h3>
+                    <canvas id="memoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        // --- 全局在线列表同步 (轮询数据库) ---
-        async function fetchGlobalOnlineUsers() {
-            try {
-                const response = await fetch('/user/online-list');
-                const result = await response.json();
-                if (result.code === 200) {
-                    renderGlobalSessions(result.data);
-                    document.getElementById('sync-time').innerText = new Date().toLocaleTimeString();
-                }
-            } catch (err) {
-                console.error("同步全局状态失败", err);
+    <!-- 本地连接详情 -->
+    <h3 style="color: #facc15; margin-top: 2rem;">本地连接详情</h3>
+    <div id="sessions" class="user-cards">
+        <!-- 本地连接列表 -->
+    </div>
+
+    <div id="status" style="margin-top: 1.5rem; text-align: left;">日志输出:</div>
+</div>
+
+<script>
+    const activeSessions = new Map(); // id -> socket
+
+    function log(msg, type) {
+        const status = document.getElementById('status');
+        const div = document.createElement('div');
+        if (type) div.className = type;
+        div.style.fontSize = "0.75rem";
+        div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        status.after(div);
+    }
+
+    // 图表实例
+    let cpuChart = null;
+    let memoryChart = null;
+    // 监控数据历史
+    const monitorHistory = {};
+    // 实时更新定时器
+    let realTimeUpdateInterval = null;
+    // 当前显示的用户ID
+    let currentUserId = null;
+
+    // --- 全局在线列表同步 (轮询数据库) ---
+    async function fetchGlobalOnlineUsers() {
+        try {
+            console.log('开始获取在线用户列表');
+            const response = await fetch('/user/online-list');
+            console.log('获取在线用户列表响应:', response);
+            const result = await response.json();
+            console.log('获取在线用户列表结果:', result);
+            if (result.code === 200) {
+                console.log('在线用户数据:', result.data);
+                renderGlobalSessions(result.data);
+                document.getElementById('sync-time').innerText = new Date().toLocaleTimeString();
+            } else {
+                console.log('获取在线用户列表失败:', result.msg);
             }
+        } catch (err) {
+            console.error("同步全局状态失败", err);
         }
+    }
 
-        function renderGlobalSessions(users) {
-            const container = document.getElementById('global-sessions');
-            container.innerHTML = '';
-            if (!users || users.length === 0) {
-                container.innerHTML = '<div style="color: #64748b; font-size: 0.8rem;">数据库中暂无在线用户</div>';
-                return;
-            }
-            users.forEach(user => {
-                const div = document.createElement('div');
-                div.style = "display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding: 4px 0;";
-                div.innerHTML = `
-                    <span style="font-size: 0.85rem;">[${user.id}] <strong>${user.username}</strong></span>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span class="online" style="font-size: 0.7rem;">● ONLINE</span>
-                        <button onclick="forceOffline(${user.id})" style="width: auto; padding: 0.15rem 0.4rem; font-size: 0.65rem; background: #ef4444; color: white;">强行下线</button>
+    function renderGlobalSessions(users) {
+        const container = document.getElementById('global-sessions');
+        console.log('开始渲染用户卡片，用户数量:', users ? users.length : 0);
+        container.innerHTML = '';
+        if (!users || users.length === 0) {
+            container.innerHTML = '<div style="color: #64748b; font-size: 0.8rem; grid-column: 1 / -1; text-align: center; padding: 2rem;">数据库中暂无在线用户</div>';
+            console.log('没有在线用户');
+            return;
+        }
+        users.forEach((user, index) => {
+            console.log('渲染用户卡片:', index, user.id, user.username);
+            const card = document.createElement('div');
+            card.className = 'user-card';
+            // 为卡片添加唯一ID，方便调试
+            card.id = `user-card-${user.id}`;
+            card.innerHTML = `
+                    <div class="user-card-header">
+                        <h4>[${user.id}] ${user.username}</h4>
+                        <span class="online">● ONLINE</span>
+                    </div>
+                    <div class="user-card-body">
+                        <p style="font-size: 0.85rem; color: #94a3b8;">IP: ${user.lastLoginIp || '未知'}</p>
+                    </div>
+                    <div class="user-card-footer">
+                        <div style="display: flex; gap: 0.5rem;">
+                            <span style="font-size: 0.75rem; color: #64748b;">点击查看详情</span>
+                            <button onclick="event.stopPropagation(); refreshMonitorInfo(${user.id}, '${user.username}')" style="padding: 0.2rem 0.5rem; font-size: 0.7rem; background: #3b82f6; color: white;">刷新</button>
+                        </div>
+                        <button onclick="event.stopPropagation(); forceOffline(${user.id})" style="padding: 0.2rem 0.5rem; font-size: 0.7rem; background: #ef4444; color: white;">强行下线</button>
                     </div>
                 `;
-                container.appendChild(div);
+            // 使用addEventListener绑定点击事件
+            card.addEventListener('click', function() {
+                console.log('卡片被点击:', user.id, user.username);
+                showMonitorInfo(user.id, user.username);
             });
-        }
+            container.appendChild(card);
+            // 验证事件绑定是否成功
+            console.log('卡片事件绑定完成:', card.id);
+        });
+        console.log('用户卡片渲染完成');
+    }
 
-        /**
-         * 强行将该 ID 下线 (通过模拟后端逻辑将 status 置为 0)
-         */
-        async function forceOffline(userId) {
-            if (!confirm(`确定要强行将用户 [${userId}] 下线吗？`)) return;
+    /**
+     * 强行将该 ID 下线 (通过模拟后端逻辑将 status 置为 0)
+     */
+    async function forceOffline(userId) {
+        if (!confirm(`确定要强行将用户 [${userId}] 下线吗？`)) return;
 
-            log(`正在对用户 [${userId}] 执行强制下线...`);
-            try {
-                // 升级后端逻辑：我们也需要修改 UserController 以便支持按 ID 下线
-                const response = await fetch(`/user/logout?userId=${userId}`, { method: 'POST' });
-                const result = await response.json();
+        log(`正在对用户 [${userId}] 执行强制下线...`);
+        try {
+            // 升级后端逻辑：我们也需要修改 UserController 以便支持按 ID 下线
+            const response = await fetch(`/user/logout?userId=${userId}`, { method: 'POST' });
+            const result = await response.json();
 
-                if (result.code === 200) {
-                    log(`用户 [${userId}] 强制下线指令已发送`, "online");
-                } else {
-                    log(`用户 [${userId}] 强制下线操作失败: ${result.msg}`, "offline");
-                }
-
-                // 如果本地刚好有这个连接，也顺便关掉它
-                if (activeSessions.has(userId.toString())) {
-                    activeSessions.get(userId.toString()).close();
-                }
-
-                setTimeout(fetchGlobalOnlineUsers, 500);
-            } catch (err) {
-                log(`强制下线请求异常: ${err.message}`, "offline");
+            if (result.code === 200) {
+                log(`用户 [${userId}] 强制下线指令已发送`, "online");
+            } else {
+                log(`用户 [${userId}] 强制下线操作失败: ${result.msg}`, "offline");
             }
-        }
 
-        // --- 本地连接管理 ---
-        function renderSessions() {
-            const container = document.getElementById('sessions');
-            container.innerHTML = '';
-            if (activeSessions.size === 0) {
-                container.innerHTML = '<div style="color: #64748b; font-size: 0.8rem;">本地暂无活跃连接</div>';
-                return;
+            // 如果本地刚好有这个连接，也顺便关掉它
+            if (activeSessions.has(userId.toString())) {
+                activeSessions.get(userId.toString()).close();
             }
-            activeSessions.forEach((socket, userId) => {
-                const div = document.createElement('div');
-                div.style = "background: #1e293b; padding: 0.5rem; border-radius: 0.4rem; display: flex; justify-content: space-between; align-items: center;";
-                div.innerHTML = `
-                    <span style="font-size: 0.85rem;">ID: ${userId}</span>
-                    <button onclick="disconnect('${userId}')" style="width: auto; padding: 0.2rem 0.5rem; font-size: 0.7rem; background: #f87171; color: white;">下线</button>
+
+            setTimeout(fetchGlobalOnlineUsers, 500);
+        } catch (err) {
+            log(`强制下线请求异常: ${err.message}`, "offline");
+        }
+    }
+
+    // --- 本地连接管理 ---
+    function renderSessions() {
+        const container = document.getElementById('sessions');
+        container.innerHTML = '';
+        if (activeSessions.size === 0) {
+            container.innerHTML = '<div style="color: #64748b; font-size: 0.8rem; grid-column: 1 / -1; text-align: center; padding: 2rem;">本地暂无活跃连接</div>';
+            return;
+        }
+        activeSessions.forEach((socket, userId) => {
+            const card = document.createElement('div');
+            card.className = 'user-card';
+            card.innerHTML = `
+                    <div class="user-card-header">
+                        <h4>ID: ${userId}</h4>
+                        <span class="online">● 已连接</span>
+                    </div>
+                    <div class="user-card-footer">
+                        <span style="font-size: 0.75rem; color: #64748b;">本地连接</span>
+                        <button onclick="disconnect('${userId}')" style="padding: 0.2rem 0.5rem; font-size: 0.7rem; background: #f87171; color: white;">下线</button>
+                    </div>
                 `;
-                container.appendChild(div);
-            });
+            container.appendChild(card);
+        });
+    }
+
+    function connect() {
+        const userId = document.getElementById('userId').value;
+        if (!userId) return alert("请输入用户 ID");
+        if (activeSessions.has(userId)) return alert("该用户已在当前页面建立连接");
+
+        console.log('开始建立WebSocket连接，用户ID:', userId);
+        log(`正在尝试建立 WebSocket 连接 (用户 ${userId})...`);
+
+        // 检查浏览器是否支持WebSocket
+        if (!window.WebSocket) {
+            console.error('浏览器不支持WebSocket');
+            log(`用户 [${userId}] 连接失败: 浏览器不支持WebSocket`, "offline");
+            return alert("您的浏览器不支持WebSocket，请使用现代浏览器");
         }
 
-        function connect() {
-            const userId = document.getElementById('userId').value;
-            if (!userId) return alert("请输入用户 ID");
-            if (activeSessions.has(userId)) return alert("该用户已在当前页面建立连接");
+        // 直接建立WebSocket连接
+        console.log('创建WebSocket连接，URL: ws://localhost:8888/ws');
+        const socket = new WebSocket("ws://localhost:8888/ws");
 
-            log(`正在尝试建立 WebSocket 连接 (用户 ${userId})...`);
-            const socket = new WebSocket("ws://localhost:8888/ws");
+        socket.onopen = function () {
+            console.log('WebSocket连接已成功建立');
+            log(`用户 [${userId}] 连接已成功`, "online");
+            console.log('发送登录消息:', `LOGIN:userId:${userId}`);
+            socket.send(`LOGIN:userId:${userId}`);
+            activeSessions.set(userId, socket);
+            renderSessions();
+            fetchGlobalOnlineUsers(); // 立即同步一次
 
-            socket.onopen = function () {
-                log(`用户 [${userId}] 连接已成功`, "online");
-                socket.send(`LOGIN:userId:${userId}`);
-                activeSessions.set(userId, socket);
-                renderSessions();
-                fetchGlobalOnlineUsers(); // 立即同步一次
-            };
+            // 初始化监控历史数据
+            if (!monitorHistory[userId]) {
+                monitorHistory[userId] = {
+                    cpu: [],
+                    memory: [],
+                    time: []
+                };
+            }
+        };
 
-            socket.onmessage = function (event) {
-                if (event.data === "PING") {
-                    socket.send("PONG");
+        socket.onerror = function (error) {
+            console.error('WebSocket连接错误:', error);
+            console.error('错误类型:', error.type);
+            console.error('错误信息:', error.message);
+            log(`用户 [${userId}] 连接失败: ${error.message || '未知错误'}`, "offline");
+            alert(`WebSocket连接失败: ${error.message || '未知错误'}`);
+        };
+
+        socket.onmessage = function (event) {
+            console.log('收到WebSocket消息:', event.data);
+            if (event.data === "PING") {
+                console.log('收到PING消息，发送PONG响应');
+                socket.send(`PONG:${userId}`);
+            } else if (event.data.startsWith("MONITOR")) {
+                // 处理服务端发送的真实监控数据
+                console.log('收到服务端监控数据:', event.data);
+                try {
+                    const parts = event.data.split(":");
+                    console.log('监控数据解析结果:', parts);
+                    const serverUserId = parts[1];
+                    console.log('服务端用户ID:', serverUserId, '当前用户ID:', userId);
+                    if (serverUserId === userId) {
+                        const cpuUsage = parseFloat(parts[2]);
+                        const memoryUsage = parseFloat(parts[3]);
+                        console.log('解析到的监控数据 - CPU:', cpuUsage, '内存:', memoryUsage);
+
+                        // 更新监控历史数据
+                        if (!monitorHistory[userId]) {
+                            monitorHistory[userId] = {
+                                cpu: [],
+                                memory: [],
+                                time: []
+                            };
+                            console.log('初始化监控历史数据');
+                        }
+
+                        const now = new Date();
+                        const timeStr = now.toLocaleTimeString();
+
+                        monitorHistory[userId].cpu.push(cpuUsage);
+                        monitorHistory[userId].memory.push(memoryUsage);
+                        monitorHistory[userId].time.push(timeStr);
+                        console.log('更新监控历史数据:', monitorHistory[userId]);
+
+                        // 保持数据点数量在合理范围内
+                        if (monitorHistory[userId].cpu.length > 10) {
+                            monitorHistory[userId].cpu.shift();
+                            monitorHistory[userId].memory.shift();
+                            monitorHistory[userId].time.shift();
+                            console.log('保持数据点数量在合理范围内');
+                        }
+
+                        // 如果模态框正在显示当前用户的监控信息，更新它
+                        console.log('当前显示的用户ID:', currentUserId, '收到数据的用户ID:', userId);
+                        if (currentUserId === userId) {
+                            // 从模态框标题中提取用户名
+                            const modalTitle = document.getElementById('modalTitle').textContent;
+                            const match = modalTitle.match(/用户 (.+?) \(ID: \d+\) 监控详情/);
+                            const username = match ? match[1] : '未知用户';
+                            console.log('更新监控信息，用户:', username);
+                            updateMonitorInfo(userId, username);
+                            updateCharts(userId);
+                        }
+                    } else {
+                        console.log('收到其他用户的监控数据，忽略');
+                    }
+                } catch (error) {
+                    console.error('解析监控数据失败:', error);
                 }
+            }
+        };
+
+        socket.onclose = function (event) {
+            console.log('WebSocket连接已关闭');
+            console.log('关闭代码:', event.code);
+            console.log('关闭原因:', event.reason);
+            console.log('是否正常关闭:', event.wasClean);
+            log(`用户 [${userId}] 已断开连接`, "offline");
+            activeSessions.delete(userId);
+            renderSessions();
+            setTimeout(fetchGlobalOnlineUsers, 500); // 延迟同步确保 DB 已更新
+        };
+    }
+
+    function disconnect(userId) {
+        const socket = activeSessions.get(userId);
+        if (socket) socket.close();
+    }
+
+    // 显示监控详情
+    async function showMonitorInfo(userId, username) {
+        console.log('showMonitorInfo被调用:', userId, username);
+        try {
+            // 清除之前的定时器
+            if (realTimeUpdateInterval) {
+                clearInterval(realTimeUpdateInterval);
+                realTimeUpdateInterval = null;
+            }
+
+            // 设置当前显示的用户ID
+            currentUserId = userId;
+
+            // 直接显示模态框，不依赖于网络请求
+            console.log('直接显示模态框');
+            document.getElementById('modalTitle').textContent = `用户 ${username} (ID: ${userId}) 监控详情`;
+
+            // 初始化监控信息
+            updateMonitorData(userId, username);
+
+            // 显示模态框
+            console.log('显示模态框');
+            document.getElementById('monitorModal').style.display = 'block';
+
+            // 添加实时更新定时器，每3秒更新一次
+            realTimeUpdateInterval = setInterval(() => {
+                updateMonitorData(userId, username);
+            }, 3000);
+        } catch (error) {
+            console.error('显示监控详情失败:', error);
+            alert('显示监控详情失败: ' + error.message);
+        }
+    }
+
+    // 关闭模态框
+    function closeModal() {
+        // 清除实时更新定时器
+        if (realTimeUpdateInterval) {
+            clearInterval(realTimeUpdateInterval);
+            realTimeUpdateInterval = null;
+        }
+        document.getElementById('monitorModal').style.display = 'none';
+    }
+
+    // 更新监控信息
+    function updateMonitorInfo(userId, username) {
+        console.log('updateMonitorInfo被调用:', userId, username);
+        try {
+            // 从monitorHistory中获取最新的监控数据
+            const cpuUsage = monitorHistory[userId] && monitorHistory[userId].cpu.length > 0
+                ? monitorHistory[userId].cpu[monitorHistory[userId].cpu.length - 1]
+                : 0;
+            const memoryUsage = monitorHistory[userId] && monitorHistory[userId].memory.length > 0
+                ? monitorHistory[userId].memory[monitorHistory[userId].memory.length - 1]
+                : 0;
+
+            console.log('获取到的监控数据 - CPU:', cpuUsage, '内存:', memoryUsage);
+
+            // 更新模态框中的监控信息
+            document.getElementById('monitorInfo').innerHTML = `
+                    <div style="margin-bottom: 1.5rem;">
+                        <p><strong>IP地址:</strong> 127.0.0.1</p>
+                        <p><strong>最后心跳时间:</strong> ${new Date().toLocaleString()}</p>
+                        <p><strong>当前CPU使用率:</strong> ${cpuUsage}%</p>
+                        <p><strong>当前内存利用率:</strong> ${memoryUsage}%</p>
+                    </div>
+                `;
+        } catch (error) {
+            console.error('更新监控信息失败:', error);
+        }
+    }
+
+    // 更新监控数据（同时更新监控信息和图表）
+    function updateMonitorData(userId, username) {
+        console.log('updateMonitorData被调用:', userId, username);
+        try {
+            // 获取最新的监控数据
+            const monitorData = monitorHistory[userId] ? {
+                cpuUsage: monitorHistory[userId].cpu[monitorHistory[userId].cpu.length - 1] || 0,
+                memoryUsage: monitorHistory[userId].memory[monitorHistory[userId].memory.length - 1] || 0,
+                timestamp: new Date()
+            } : {
+                cpuUsage: 0,
+                memoryUsage: 0,
+                timestamp: new Date()
             };
 
-            socket.onclose = function () {
-                log(`用户 [${userId}] 已断开连接`, "offline");
-                activeSessions.delete(userId);
-                renderSessions();
-                setTimeout(fetchGlobalOnlineUsers, 500); // 延迟同步确保 DB 已更新
+            const cpuUsage = monitorData.cpuUsage;
+            const memoryUsage = monitorData.memoryUsage;
+            const timestamp = monitorData.timestamp;
+
+            // 更新模态框中的监控信息
+            document.getElementById('monitorInfo').innerHTML = `
+                    <div style="margin-bottom: 1.5rem;">
+                        <p><strong>IP地址:</strong> 127.0.0.1</p>
+                        <p><strong>最后心跳时间:</strong> ${timestamp.toLocaleString()}</p>
+                        <p><strong>当前CPU使用率:</strong> ${cpuUsage}%</p>
+                        <p><strong>当前内存利用率:</strong> ${memoryUsage}%</p>
+                    </div>
+                `;
+
+            // 更新图表
+            updateCharts(userId);
+        } catch (error) {
+            console.error('更新监控数据失败:', error);
+        }
+    }
+
+    // 刷新监控信息
+    function refreshMonitorInfo(userId, username) {
+        console.log('refreshMonitorInfo被调用:', userId, username);
+        try {
+            // 更新模态框中的监控信息
+            console.log('更新监控信息');
+            document.getElementById('modalTitle').textContent = `用户 ${username} (ID: ${userId}) 监控详情`;
+
+            // 调用updateMonitorData函数
+            updateMonitorData(userId, username);
+
+            // 显示成功消息
+            console.log('监控信息刷新成功');
+            alert('监控信息已刷新');
+        } catch (error) {
+            console.error('刷新监控信息失败:', error);
+            alert('刷新监控信息失败: ' + error.message);
+        }
+    }
+
+    // 从模态框中刷新监控信息
+    function refreshModalMonitorInfo() {
+        console.log('refreshModalMonitorInfo被调用');
+        try {
+            // 从模态框标题中提取用户ID和用户名
+            const modalTitle = document.getElementById('modalTitle').textContent;
+            const match = modalTitle.match(/用户 (.+?) \(ID: (\d+)\) 监控详情/);
+            if (match) {
+                const username = match[1];
+                const userId = match[2];
+                console.log('从模态框标题中提取的用户信息:', userId, username);
+
+                // 调用refreshMonitorInfo函数
+                refreshMonitorInfo(userId, username);
+            } else {
+                console.error('无法从模态框标题中提取用户信息');
+                alert('无法从模态框标题中提取用户信息');
+            }
+        } catch (error) {
+            console.error('刷新模态框监控信息失败:', error);
+            alert('刷新监控信息失败: ' + error.message);
+        }
+    }
+
+    // 更新图表
+    function updateCharts(userId) {
+        if (!monitorHistory[userId]) {
+            monitorHistory[userId] = {
+                cpu: [],
+                memory: [],
+                time: []
             };
         }
 
-        function disconnect(userId) {
-            const socket = activeSessions.get(userId);
-            if (socket) socket.close();
+        // 保持数据点数量在合理范围内
+        if (monitorHistory[userId].cpu.length > 10) {
+            monitorHistory[userId].cpu.shift();
+            monitorHistory[userId].memory.shift();
+            monitorHistory[userId].time.shift();
         }
 
-        // 启动轮询
-        setInterval(fetchGlobalOnlineUsers, 3000);
-        fetchGlobalOnlineUsers();
+        // 更新CPU图表
+        if (!cpuChart) {
+            cpuChart = new Chart(document.getElementById('cpuChart'), {
+                type: 'line',
+                data: {
+                    labels: monitorHistory[userId].time,
+                    datasets: [{
+                        label: 'CPU使用率 (%)',
+                        data: monitorHistory[userId].cpu,
+                        borderColor: '#38bdf8',
+                        backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    // 设置固定的图表高度
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#f8fafc'
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            // 固定纵轴范围
+                            suggestedMin: 0,
+                            suggestedMax: 100,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#94a3b8'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#94a3b8'
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            cpuChart.data.labels = monitorHistory[userId].time;
+            cpuChart.data.datasets[0].data = monitorHistory[userId].cpu;
+            cpuChart.update();
+        }
 
-    </script>
+        // 更新内存图表
+        if (!memoryChart) {
+            memoryChart = new Chart(document.getElementById('memoryChart'), {
+                type: 'line',
+                data: {
+                    labels: monitorHistory[userId].time,
+                    datasets: [{
+                        label: '内存利用率 (%)',
+                        data: monitorHistory[userId].memory,
+                        borderColor: '#4ade80',
+                        backgroundColor: 'rgba(74, 222, 128, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    // 设置固定的图表高度
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#f8fafc'
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            // 固定纵轴范围
+                            suggestedMin: 0,
+                            suggestedMax: 100,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#94a3b8'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#94a3b8'
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            memoryChart.data.labels = monitorHistory[userId].time;
+            memoryChart.data.datasets[0].data = monitorHistory[userId].memory;
+            memoryChart.update();
+        }
+    }
+
+    // 启动轮询
+    setInterval(fetchGlobalOnlineUsers, 3000);
+    fetchGlobalOnlineUsers();
+
+    // 点击模态框外部关闭
+    window.onclick = function(event) {
+        const modal = document.getElementById('monitorModal');
+        if (event.target == modal) {
+            // 清除实时更新定时器
+            if (realTimeUpdateInterval) {
+                clearInterval(realTimeUpdateInterval);
+                realTimeUpdateInterval = null;
+            }
+            modal.style.display = 'none';
+        }
+    }
+
+</script>
+
 </body>
 
 </html>

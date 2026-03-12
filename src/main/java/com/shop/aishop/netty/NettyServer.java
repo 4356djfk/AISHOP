@@ -31,6 +31,9 @@ public class NettyServer {
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
 
+    /**
+     * 启动 Netty 服务器
+     */
     public void start(int port) {
         new Thread(() -> {
             bossGroup = new NioEventLoopGroup(1);
@@ -42,12 +45,17 @@ public class NettyServer {
                         .childHandler(new ChannelInitializer<SocketChannel>() {
                             @Override
                             protected void initChannel(SocketChannel ch) {
+                                // 添加空闲状态处理器，设置读空闲和写空闲时间
+                                ch.pipeline().addLast(new IdleStateHandler(30, 10, 0, TimeUnit.SECONDS));
+                                // HTTP 编解码器
                                 ch.pipeline().addLast(new HttpServerCodec());
+                                // 支持大文件传输
                                 ch.pipeline().addLast(new ChunkedWriteHandler());
+                                // 聚合 HTTP 请求
                                 ch.pipeline().addLast(new HttpObjectAggregator(65536));
-                                // 心跳检测：30秒没读到数据判定超时，自动触发 IdleStateEvent
-                                ch.pipeline().addLast(new IdleStateHandler(30, 0, 0, TimeUnit.SECONDS));
+                                // WebSocket 协议处理器
                                 ch.pipeline().addLast(new WebSocketServerProtocolHandler("/ws"));
+                                // 自定义业务处理器
                                 ch.pipeline().addLast(nettyServerHandler);
                             }
                         });
@@ -64,8 +72,12 @@ public class NettyServer {
         }).start();
     }
 
+    /**
+     * 关闭 Netty 服务器
+     */
     public void stop() {
         if (bossGroup != null) bossGroup.shutdownGracefully();
         if (workerGroup != null) workerGroup.shutdownGracefully();
+        log.info("Netty WebSocket 服务器已关闭");
     }
 }
